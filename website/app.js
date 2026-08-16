@@ -2,7 +2,8 @@ import { AutoTokenizer, env } from "https://cdn.jsdelivr.net/npm/@huggingface/tr
 
 const $ = (selector) => document.querySelector(selector);
 const ui = { chat: $("#chat"), empty: $("#empty"), form: $("#composer"), prompt: $("#prompt"), send: $("#send"), status: $("#status"), dot: $("#dot"), runtime: $("#runtime"), clear: $("#clear") };
-const MODEL_URL = new URL("./model/tiny50m-int8.onnx", location.href).href;
+const MODEL_URL = new URL("./model/tiny50m-fp16.onnx", location.href).href;
+const MANIFEST_URL = new URL("./model/tiny50m-fp16-manifest.json", location.href).href;
 const MAX_CONTEXT = 512, MAX_NEW_TOKENS = 160;
 let session, tokenizer, generating = false, turns = [];
 
@@ -27,14 +28,29 @@ async function modelBytes() {
   return bytes.buffer;
 }
 
+async function loadExternalWeights() {
+  const manifest = await fetch(MANIFEST_URL).then((response) => response.json());
+  const cache = await caches.open("tiny50m-v2");
+  let complete = 0;
+  const files = await Promise.all(manifest.files.map(async (path) => {
+    const url = new URL(`./model/${path}`, location.href).href;
+    let response = await cache.match(url);
+    if (!response) { response = await fetch(url); if (!response.ok) throw new Error(`Weight shard failed (${response.status})`); await cache.put(url, response.clone()); }
+    const data = await response.arrayBuffer(); complete += 1;
+    setState(`Loading GPU weights ${Math.round(complete / manifest.files.length * 100)}%`, "busy");
+    return { path, data };
+  }));
+  return files;
+}
+
 async function load() {
   if (session) return; ui.send.disabled = true;
   try {
-    const [bytes, loadedTokenizer] = await Promise.all([modelBytes(), AutoTokenizer.from_pretrained("model", { local_files_only: true })]);
+    const [bytes, externalData, loadedTokenizer] = await Promise.all([modelBytes(), loadExternalWeights(), AutoTokenizer.from_pretrained("model", { local_files_only: true })]);
     tokenizer = loadedTokenizer; setState("Starting model", "busy");
     const wantsGpu = "gpu" in navigator;
-    try { session = await ort.InferenceSession.create(bytes, { executionProviders: wantsGpu ? ["webgpu", "wasm"] : ["wasm"], graphOptimizationLevel: "all" }); ui.runtime.textContent = wantsGpu ? "On-device · WebGPU" : "On-device · CPU"; }
-    catch { session = await ort.InferenceSession.create(bytes, { executionProviders: ["wasm"], graphOptimizationLevel: "all" }); ui.runtime.textContent = "On-device · CPU"; }
+    try { session = await ort.InferenceSession.create(bytes, { externalData, executionProviders: wantsGpu ? ["webgpu", "wasm"] : ["wasm"], graphOptimizationLevel: "all" }); ui.runtime.textContent = wantsGpu ? "On-device · WebGPU" : "On-device · CPU"; }
+    catch { session = await ort.InferenceSession.create(bytes, { externalData, executionProviders: ["wasm"], graphOptimizationLevel: "all" }); ui.runtime.textContent = "On-device · CPU"; }
     setState("Ready");
   } catch (error) { console.error(error); setState("Could not load", "error"); ui.runtime.textContent = "Use current Chrome or Edge"; throw error; }
   finally { ui.send.disabled = false; }
@@ -55,7 +71,7 @@ function choose(logits, recent, temperature = .78, topK = 36) {
 
 function emptyCache() {
   const feeds = {};
-  for (let layer = 0; layer < 12; layer++) for (const kind of ["key", "value"]) feeds[`past_${layer}_${kind}`] = new ort.Tensor("float32", new Float32Array(0), [1, 2, 0, 64]);
+  for (let layer = 0; layer < 12; layer++) for (const kind of ["key", "value"]) feeds[`past_${layer}_${kind}`] = new ort.Tensor("float16", new Uint16Array(0), [1, 2, 0, 64]);
   return feeds;
 }
 

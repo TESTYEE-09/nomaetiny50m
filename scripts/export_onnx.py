@@ -24,8 +24,8 @@ model_module.rope = export_rope
 
 
 def export_rms_norm(self, x):
-    variance = x.float().pow(2).mean(-1, keepdim=True)
-    normalized = x * torch.rsqrt(variance + 1e-6).to(x.dtype)
+    variance = x.pow(2).mean(-1, keepdim=True)
+    normalized = x * torch.rsqrt(variance + 1e-6)
     return normalized * self.weight
 
 
@@ -56,7 +56,7 @@ class BrowserModel(nn.Module):
             repeat = block.attn.h // block.attn.kv
             kr = k.repeat_interleave(repeat, 1)
             vr = v.repeat_interleave(repeat, 1)
-            scores = torch.matmul(q, kr.transpose(-2, -1)) / (block.attn.d ** 0.5)
+            scores = torch.matmul(q, kr.transpose(-2, -1)) * torch.tensor(1 / (block.attn.d ** 0.5), dtype=x.dtype)
             query_positions = torch.arange(t, device=x.device)[:, None] + past_len
             key_positions = torch.arange(k.shape[2], device=x.device)[None, :]
             scores = scores.masked_fill(key_positions > query_positions, -10000.0)
@@ -76,9 +76,10 @@ def main():
     state = payload.get("model", payload)
     model = TinyLM(ModelConfig()).eval()
     model.load_state_dict(state)
+    model.half()
     wrapped = BrowserModel(model).eval()
     sample = torch.tensor([[1, 2, 3, 4]], dtype=torch.long)
-    cache = tuple(torch.zeros(1, 2, 2, 64) for _ in range(24))
+    cache = tuple(torch.zeros(1, 2, 2, 64, dtype=torch.float16) for _ in range(24))
     input_names = ["input_ids"] + [f"past_{i}_{kind}" for i in range(12) for kind in ("key", "value")]
     output_names = ["logits"] + [f"present_{i}_{kind}" for i in range(12) for kind in ("key", "value")]
     dynamic_axes = {"input_ids": {1: "sequence"}}
