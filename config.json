@@ -1,0 +1,5 @@
+{
+  "model": {"vocab_size": 16384, "hidden_size": 512, "intermediate_size": 1792, "num_hidden_layers": 12, "num_attention_heads": 8, "num_key_value_heads": 2, "max_position_embeddings": 2048, "rope_theta": 10000.0},
+  "generation": {"model": "deepseek-v4-flash", "thinking": "disabled", "base_url": "https://api.deepseek.com", "max_concurrency": 8, "max_output_tokens": 4096, "max_retries": 6, "estimated_spend_limit_usd": 1.0},
+  "training": {"sequence_length": 2048, "micro_batch_size": 1, "gradient_accumulation": 16, "learning_rate": 0.0003, "weight_decay": 0.1, "warmup_ratio": 0.02, "gradient_clip": 1.0, "precision": "fp16"}
+}
