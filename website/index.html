@@ -1,1 +1,16 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Tiny50M local demo</title><style>body{margin:auto;max-width:850px;padding:30px;background:#101216;color:#eee;font:16px system-ui}#chat{min-height:45vh;border:1px solid #333;border-radius:14px;padding:18px;white-space:pre-wrap}.bar{display:flex;gap:8px;margin-top:12px}textarea{flex:1;background:#181b21;color:#fff;border:1px solid #444;border-radius:10px;padding:12px}button{background:#e34b4b;color:white;border:0;border-radius:10px;padding:10px 18px}.muted{color:#9aa}.ok{color:#79d99a}.warn{color:#f2c66d}</style></head><body><h1>Tiny50M</h1><p id="status" class="muted">Loading export metadata…</p><p class="muted">Browser shell. The shipped <code>.pt</code> is a PyTorch state dict and cannot run directly in WebGPU. Demo replies are explicitly not model inference.</p><div id="chat"></div><div class="bar"><textarea id="input" rows="2" placeholder="Message Tiny50M"></textarea><button id="send">Send</button><button id="reset">Reset</button></div><p class="muted">Mode: demo fallback · Tokens/sec: <span id="tps">—</span></p><script type="module">const $=s=>document.querySelector(s),status=$('#status'),chat=$('#chat');try{const r=await fetch('../export/model-fp16.json');if(!r.ok)throw Error(r.status);const m=await r.json();status.innerHTML=`<span class="ok">Export found:</span> ${m.parameters?.toLocaleString?.()||'unknown'} parameters · ${m.precision||'unknown'} · ${m.trained_tokens?.toLocaleString?.()||'?'} tokens`}catch(e){status.innerHTML='<span class="warn">Metadata unavailable.</span> Serve this folder over HTTP.'}if(navigator.gpu){const a=await navigator.gpu.requestAdapter();if(a)status.innerHTML+=' · WebGPU available (conversion still required)'}function reply(s){return `Demo response (not model inference): I received “${s}”.\n\nUse the Python inference script for real output. A WebGPU binary export is not included because the artifact is a PyTorch state dict.`}$('#send').onclick=()=>{const x=$('#input').value.trim();if(!x)return;chat.textContent+=(chat.textContent?'\n\n':'')+'You: '+x+'\nTiny50M: '+reply(x);$('#input').value=''};$('#reset').onclick=()=>chat.textContent='';</script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#f4f2ed"><meta name="description" content="Tiny50M running privately on your device.">
+  <title>Tiny50M</title><link rel="stylesheet" href="./styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/ort.webgpu.min.js"></script>
+</head>
+<body><main>
+  <header><a class="brand" href="./" aria-label="Tiny50M home">tiny<span>50m</span></a><div class="state"><i id="dot"></i><span id="status">Ready</span></div></header>
+  <section id="empty" class="empty"><h1>Small model.<br>Right here.</h1><p>Private, on-device, no account.</p></section>
+  <section id="chat" class="chat" aria-live="polite"></section>
+  <form id="composer"><textarea id="prompt" rows="1" maxlength="1600" aria-label="Message" placeholder="Message Tiny50M"></textarea><button id="send" type="submit" aria-label="Send"><span>↑</span></button></form>
+  <footer><span id="runtime">Runs locally</span><button id="clear" type="button">Clear</button></footer>
+</main><script type="module" src="./app.js"></script></body>
+</html>

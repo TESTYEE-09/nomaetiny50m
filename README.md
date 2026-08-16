@@ -18,7 +18,7 @@ AMD ROCm/PyTorch 7.2.1 supports RX 9070 XT on Windows 11 for PyTorch inference, 
 
 ## Included weights
 
-`export/model-fp16.pt` contains the tied-weight 49,295,872-parameter mixed model in FP16. It is a 98.6 MB inference export trained for 2,553,856 tokens. The resumable optimizer checkpoint remains local because it is roughly 592 MB, and all periodic checkpoints total over 11 GB. `website/index.html` is a WebGPU capability/UI shell; the PyTorch state dict cannot run directly in WebGPU yet.
+`export/model-fp16.pt` contains the tied-weight 49,295,872-parameter mixed model in FP16. It is a 98.6 MB inference export trained for 2,553,856 tokens. The resumable optimizer checkpoint remains local because it is roughly 592 MB, and all periodic checkpoints total over 11 GB. `website/` contains the GitHub Pages client: a 58.2 MB INT8 ONNX export with a key/value cache, WebGPU/CPU fallback, local browser caching, and token-by-token generation. Prompts and generations stay on the visitor's device.
 
 ## Commands
 

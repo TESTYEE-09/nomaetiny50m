@@ -10,6 +10,8 @@ data/processed/tokenizer_corpus.txt
 checkpoints/*
 logs/*
 evaluation/results.jsonl
+site/
+work/
 !data/raw/.gitkeep
 !data/processed/.gitkeep
 !checkpoints/.gitkeep
