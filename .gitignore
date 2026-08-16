@@ -23,3 +23,6 @@ data/processed-wiki/*
 data/empty_raw/*
 data/empty_luna/*
 
+data/processed/wiki.bin
+data/processed/wiki.bin.json
+
