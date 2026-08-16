@@ -5,6 +5,8 @@ __pycache__/
 .pytest_cache/
 *.pyc
 data/raw/*.json
+data/raw_hf/*
+data/hf_raw/*
 data/processed/chat.jsonl
 data/processed/tokenizer_corpus.txt
 checkpoints/*
