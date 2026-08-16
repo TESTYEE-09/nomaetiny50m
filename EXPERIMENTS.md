@@ -42,3 +42,16 @@
 - Peak allocated VRAM: **MEASURED** 1,352,043,008 bytes
 - Late-batch loss range: **MEASURED** approximately 2.05–3.58
 - FP16 inference export: **MEASURED** 98,630,719 bytes
+
+## 2026-08-16 — Ten-epoch retraining on mixed corpus
+
+- Root cause of live-site gibberish: `train.bin` was packed with the pre-retraining tokenizer; retraining on it corrupted the model. Reverted to `checkpoints/step-1200.pt` (last clean checkpoint trained on `mixed.bin`).
+- Training: **MEASURED** resumed `step-1200.pt` for 12,470 steps; 25,538,560 tokens; sequence 512; gradient accumulation 4; FP16
+- Sustained throughput: **MEASURED** approximately 22,058 tokens/sec on RX 9070 XT
+- Peak allocated VRAM: **MEASURED** approximately 1.5 GiB
+- Final checkpoint: `checkpoints/mixed-production.pt` (step 12470)
+- Held-out corpus loss: **MEASURED** approximately 0.7–1.0 (down from 2.2–4.8 at step 1200)
+- Web GPU export: FP16 ONNX graph + 111 per-tensor shards, 115.4 MB total
+- Web CPU export: **MEASURED** self-contained int8 ONNX, 83.4 MB (WASM fallback, much faster than FP16 on CPU)
+- Site prompt format fixed to match training chat format (`<|eos|>` after each turn)
+- ONNX vs PyTorch parity: **MEASURED** identical argmax, max abs diff 0.0527 (FP16)

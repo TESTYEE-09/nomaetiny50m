@@ -4,8 +4,9 @@ const $ = (selector) => document.querySelector(selector);
 const ui = { chat: $("#chat"), empty: $("#empty"), form: $("#composer"), prompt: $("#prompt"), send: $("#send"), status: $("#status"), dot: $("#dot"), runtime: $("#runtime"), clear: $("#clear") };
 const MODEL_URL = new URL("./model/tiny50m-fp16.onnx", location.href).href;
 const MANIFEST_URL = new URL("./model/tiny50m-fp16-manifest.json", location.href).href;
+const INT8_URL = new URL("./model/tiny50m-int8.onnx", location.href).href;
 const MAX_CONTEXT = 512, MAX_NEW_TOKENS = 160;
-let session, tokenizer, generating = false, turns = [];
+let session, tokenizer, generating = false, turns = [], cacheDtype = "float16";
 
 env.allowRemoteModels = false; env.allowLocalModels = true; env.localModelPath = new URL("./", location.href).href;
 ort.env.wasm.numThreads = Math.min(4, navigator.hardwareConcurrency || 2); ort.env.wasm.simd = true;
@@ -13,18 +14,18 @@ ort.env.webgpu.powerPreference = "high-performance";
 
 function setState(label, kind = "") { ui.status.textContent = label; ui.dot.className = kind; }
 
-async function modelBytes() {
+async function modelBytes(url = MODEL_URL) {
   const cache = await caches.open("tiny50m-v1");
-  let response = await cache.match(MODEL_URL);
+  let response = await cache.match(url);
   if (response) { setState("Loading local copy", "busy"); return response.arrayBuffer(); }
-  setState("Downloading 0%", "busy"); response = await fetch(MODEL_URL);
+  setState("Downloading 0%", "busy"); response = await fetch(url);
   if (!response.ok) throw new Error(`Model download failed (${response.status})`);
   const total = Number(response.headers.get("content-length")) || 58205563, reader = response.body.getReader(), chunks = [];
   let received = 0;
   while (true) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); received += value.length; setState(`Downloading ${Math.min(100, Math.round(received / total * 100))}%`, "busy"); }
   const bytes = new Uint8Array(received); let offset = 0;
   for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length; }
-  await cache.put(MODEL_URL, new Response(bytes, { headers: { "content-type": "application/octet-stream" } }));
+  await cache.put(url, new Response(bytes, { headers: { "content-type": "application/octet-stream" } }));
   return bytes.buffer;
 }
 
@@ -46,12 +47,19 @@ async function loadExternalWeights() {
 async function load() {
   if (session) return; ui.send.disabled = true;
   try {
-    const [bytes, externalData, loadedTokenizer] = await Promise.all([modelBytes(), loadExternalWeights(), AutoTokenizer.from_pretrained("model", { local_files_only: true })]);
-    tokenizer = loadedTokenizer; setState("Starting model", "busy");
+    const loadedTokenizer = AutoTokenizer.from_pretrained("model", { local_files_only: true });
+    tokenizer = await loadedTokenizer; setState("Starting model", "busy");
     const wantsGpu = "gpu" in navigator;
-    try { session = await ort.InferenceSession.create(bytes, { externalData, executionProviders: wantsGpu ? ["webgpu", "wasm"] : ["wasm"], graphOptimizationLevel: "all" }); ui.runtime.textContent = wantsGpu ? "On-device · WebGPU" : "On-device · CPU"; }
-    catch { session = await ort.InferenceSession.create(bytes, { externalData, executionProviders: ["wasm"], graphOptimizationLevel: "all" }); ui.runtime.textContent = "On-device · CPU"; }
-    setState("Ready");
+    if (wantsGpu) {
+      try {
+        const [bytes, externalData] = await Promise.all([modelBytes(), loadExternalWeights()]);
+        session = await ort.InferenceSession.create(bytes, { externalData, executionProviders: ["webgpu", "wasm"], graphOptimizationLevel: "all" });
+        cacheDtype = "float16"; ui.runtime.textContent = "On-device · WebGPU"; setState("Ready"); return;
+      } catch (error) { console.warn("WebGPU failed, falling back to CPU:", error); }
+    }
+    const bytes = await modelBytes(INT8_URL);
+    session = await ort.InferenceSession.create(bytes, { executionProviders: ["wasm"], graphOptimizationLevel: "all" });
+    cacheDtype = "float32"; ui.runtime.textContent = "On-device · CPU (int8)"; setState("Ready");
   } catch (error) { console.error(error); setState("Could not load", "error"); ui.runtime.textContent = "Use current Chrome or Edge"; throw error; }
   finally { ui.send.disabled = false; }
 }
@@ -71,13 +79,14 @@ function choose(logits, recent, temperature = .78, topK = 36) {
 
 function emptyCache() {
   const feeds = {};
-  for (let layer = 0; layer < 12; layer++) for (const kind of ["key", "value"]) feeds[`past_${layer}_${kind}`] = new ort.Tensor("float16", new Uint16Array(0), [1, 2, 0, 64]);
+  const zeros = cacheDtype === "float16" ? new Uint16Array(0) : new Float32Array(0);
+  for (let layer = 0; layer < 12; layer++) for (const kind of ["key", "value"]) feeds[`past_${layer}_${kind}`] = new ort.Tensor(cacheDtype, zeros, [1, 2, 0, 64]);
   return feeds;
 }
 
 async function reply(userText, target) {
   const context = turns.slice(0, -1).slice(-4).map(t => `<|${t.role}|>${t.text}`).join("");
-  const prompt = `<|bos|><|system|>You are Tiny50M, a concise helpful assistant.${context}<|user|>${userText}<|assistant|>`;
+  const prompt = `<|bos|><|system|>You are Tiny50M, a concise helpful assistant.<|eos|>${context}<|user|>${userText}<|eos|><|assistant|>`;
   let ids = Array.from((await tokenizer(prompt, { add_special_tokens: false })).input_ids.data, Number).slice(-MAX_CONTEXT);
   let feeds = emptyCache(); feeds.input_ids = new ort.Tensor("int64", BigInt64Array.from(ids, BigInt), [1, ids.length]);
   let output = await session.run(feeds); const generated = [], started = performance.now(); target.classList.add("cursor");

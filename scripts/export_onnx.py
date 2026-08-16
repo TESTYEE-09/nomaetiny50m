@@ -70,16 +70,18 @@ class BrowserModel(nn.Module):
 
 
 def main():
-    target = ROOT / "site" / "public" / "model" / "tiny50m.onnx"
+    fp32 = "--fp32" in sys.argv
+    target = ROOT / "site" / "public" / "model" / ("tiny50m-fp32.onnx" if fp32 else "tiny50m.onnx")
     target.parent.mkdir(parents=True, exist_ok=True)
     payload = torch.load(ROOT / "export" / "model-fp16.pt", map_location="cpu", weights_only=True)
     state = payload.get("model", payload)
     model = TinyLM(ModelConfig()).eval()
     model.load_state_dict(state)
-    model.half()
+    if not fp32:
+        model.half()
     wrapped = BrowserModel(model).eval()
     sample = torch.tensor([[1, 2, 3, 4]], dtype=torch.long)
-    cache = tuple(torch.zeros(1, 2, 2, 64, dtype=torch.float16) for _ in range(24))
+    cache = tuple(torch.zeros(1, 2, 2, 64, dtype=torch.float32 if fp32 else torch.float16) for _ in range(24))
     input_names = ["input_ids"] + [f"past_{i}_{kind}" for i in range(12) for kind in ("key", "value")]
     output_names = ["logits"] + [f"present_{i}_{kind}" for i in range(12) for kind in ("key", "value")]
     dynamic_axes = {"input_ids": {1: "sequence"}}
