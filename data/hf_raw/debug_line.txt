@@ -1,0 +1,1 @@
+{"id": "hf-gsm8k-a9b2878b9b582d589e587878", "category": "math", "messages": [{"role": "user", "content": "Clive opens a box full of different colored balls.  

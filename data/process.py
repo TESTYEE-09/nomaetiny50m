@@ -22,7 +22,7 @@ def normalize_messages(messages):
     return normalized
 
 def main():
-    p=argparse.ArgumentParser(); p.add_argument("--raw",default="data/raw"); p.add_argument("--luna",default="data/luna_raw"); p.add_argument("--output",default="data/processed"); a=p.parse_args()
+    p=argparse.ArgumentParser(); p.add_argument("--raw",default="data/raw"); p.add_argument("--luna",default="data/luna_raw"); p.add_argument("--hf",default="data/hf_raw"); p.add_argument("--output",default="data/processed"); a=p.parse_args()
     output=Path(a.output); output.mkdir(parents=True,exist_ok=True)
     records=[]; seen=set(); categories=Counter(); sources=Counter(); duplicates=0
     for path in sorted(Path(a.raw).glob("*.json")):
@@ -40,6 +40,14 @@ def main():
             if digest in seen: duplicates += 1; continue
             seen.add(digest); categories[obj["category"]] += 1; sources[obj.get("source","gpt-5.6-luna")] += 1
             records.append({"id":obj["id"],"source":obj.get("source","gpt-5.6-luna"),"category":obj["category"],"messages":messages,"text":format_chat(messages)})
+    for shard in sorted(Path(a.hf).glob("*.jsonl")):
+        for line in shard.read_text(encoding="utf-8").split("\n"):
+            if not line.strip(): continue
+            obj=json.loads(line); messages=normalize_messages(obj["messages"])
+            canonical=json.dumps(messages,ensure_ascii=False,sort_keys=True); digest=hashlib.sha256(canonical.encode()).hexdigest()
+            if digest in seen: duplicates += 1; continue
+            seen.add(digest); categories[obj["category"]] += 1; sources[obj["id"].split("-")[1]] += 1
+            records.append({"id":obj["id"],"source":obj["id"].split("-")[1],"category":obj["category"],"messages":messages,"text":format_chat(messages)})
     if not records: raise SystemExit("No teacher records found")
     with (output/"chat.jsonl").open("w",encoding="utf-8") as f:
         for record in records: f.write(json.dumps(record,ensure_ascii=False)+"\n")

@@ -7,7 +7,9 @@ def main():
     p=argparse.ArgumentParser(); p.add_argument("--input",default="data/processed/chat.jsonl"); p.add_argument("--tokenizer",default="tokenizer/tokenizer.json"); p.add_argument("--seq",type=int,default=2048); p.add_argument("--output",default="data/processed/train.bin"); a=p.parse_args()
     if a.seq < 1: raise SystemExit("--seq must be positive")
     tok=Tokenizer.from_file(a.tokenizer); ids=[]
-    for line in Path(a.input).read_text(encoding="utf-8").splitlines(): ids.extend(tok.encode(json.loads(line)["text"]).ids)
+    for line in Path(a.input).read_text(encoding="utf-8").split("\n"):
+        if not line.strip(): continue
+        ids.extend(tok.encode(json.loads(line)["text"]).ids)
     usable=(len(ids)//(a.seq+1))*(a.seq+1)
     if usable==0: raise SystemExit(f"Need at least {a.seq+1} tokens; found {len(ids)}")
     if ids and max(ids) >= 2**16:

@@ -55,3 +55,13 @@
 - Web CPU export: **MEASURED** self-contained int8 ONNX, 83.4 MB (WASM fallback, much faster than FP16 on CPU)
 - Site prompt format fixed to match training chat format (`<|eos|>` after each turn)
 - ONNX vs PyTorch parity: **MEASURED** identical argmax, max abs diff 0.0527 (FP16)
+
+## 2026-08-16 — Hugging Face data expansion + continued training
+
+- New sources (Hugging Face): databricks-dolly-15k (14,996), yahma/alpaca-cleaned (51,756), openai/gsm8k (7,473)
+- Merged corpus: **MEASURED** 78,862 records; 18,142,245 tokens (up from 2.55M)
+- Training: **MEASURED** resumed `mixed-production.pt` for 13,284 steps; 52,744,192 total tokens; sequence 512; gradient accumulation 4; FP16; ~13.6 minutes
+- Sustained throughput: **MEASURED** approximately 21,978 tokens/sec on RX 9070 XT
+- Peak allocated VRAM: **MEASURED** 1,556,622,336 bytes (1.45 GiB)
+- Final checkpoint: `checkpoints/mixed2-production.pt` (step 25754)
+- ONNX vs PyTorch parity: **MEASURED** identical argmax, max abs diff 0.0234 (FP16); int8 identical argmax, top-5 overlap 5/5
