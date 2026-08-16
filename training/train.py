@@ -12,7 +12,9 @@ def main():
     p=argparse.ArgumentParser(); p.add_argument("--data",default="data/processed/train.bin"); p.add_argument("--steps",type=int,default=1000); p.add_argument("--seq",type=int,default=2048); p.add_argument("--grad-accum",type=int,default=16); p.add_argument("--lr",type=float,default=3e-4); p.add_argument("--warmup",type=float,default=.02); p.add_argument("--save-every",type=int,default=100); p.add_argument("--resume"); p.add_argument("--output",default="checkpoints/latest.pt"); p.add_argument("--seed",type=int,default=42); a=p.parse_args()
     if not torch.cuda.is_available(): raise SystemExit("GPU REQUIRED: refusing CPU fallback")
     random.seed(a.seed); np.random.seed(a.seed); torch.manual_seed(a.seed); device="cuda"
-    data=np.memmap(a.data,dtype=np.uint16,mode="r"); m=TinyLM().to(device); opt=torch.optim.AdamW(m.parameters(),lr=a.lr,betas=(.9,.95),weight_decay=.1); start_step=tokens=0
+    data=np.memmap(a.data,dtype=np.uint16,mode="r")
+    if len(data) < a.seq + 1: raise SystemExit(f"Need at least {a.seq + 1} tokens; found {len(data)}")
+    m=TinyLM().to(device); opt=torch.optim.AdamW(m.parameters(),lr=a.lr,betas=(.9,.95),weight_decay=.1); start_step=tokens=0
     if a.resume:
         ck=torch.load(a.resume,map_location=device,weights_only=False); m.load_state_dict(ck["model"]); opt.load_state_dict(ck["optimizer"]); start_step=ck["step"]; tokens=ck["tokens"]
     torch.cuda.reset_peak_memory_stats(); began=time.perf_counter()
@@ -21,8 +23,8 @@ def main():
         progress=(step+1)/a.steps; warm=max(1,int(a.steps*a.warmup)); scale=(step+1)/warm if step<warm else .1+.9*.5*(1+math.cos(math.pi*(step-warm)/max(1,a.steps-warm)))
         for group in opt.param_groups: group["lr"]=a.lr*scale
         for _ in range(a.grad_accum):
-            pos=random.randrange(0,len(data)-a.seq-1); ids=torch.from_numpy(np.array(data[pos:pos+a.seq+1],dtype=np.int64)).unsqueeze(0).to(device)
-            with torch.autocast("cuda",dtype=torch.float16): _,loss=m(ids[:,:-1],ids[:,1:]); scaled=loss/a.grad_accum
+            pos=random.randrange(0,len(data)-a.seq); ids=torch.from_numpy(np.array(data[pos:pos+a.seq+1],dtype=np.int64)).unsqueeze(0).to(device)
+            with torch.autocast("cuda",dtype=torch.float16): _,loss=m(ids,ids); scaled=loss/a.grad_accum
             scaled.backward(); total_loss += loss.item(); tokens += a.seq
         torch.nn.utils.clip_grad_norm_(m.parameters(),1.0); opt.step()
         if (step+1)%10==0 or step==start_step:
@@ -31,4 +33,3 @@ def main():
         if (step+1)%a.save_every==0: save(Path(a.output),m,opt,step+1,tokens,a); save(Path(a.output).with_name(f"step-{step+1}.pt"),m,opt,step+1,tokens,a)
     save(Path(a.output),m,opt,a.steps,tokens,a)
 if __name__=="__main__": main()
-

@@ -1,11 +1,19 @@
 {
-  "records": 14,
-  "mechanical_duplicates_removed": 0,
-  "categories": {
-    "web": 5,
-    "conversation": 6,
-    "explanation": 2,
-    "code_edit": 1
+  "records": 4637,
+  "mechanical_duplicates_removed": 4,
+  "sources": {
+    "deepseek-v4-flash": 4465,
+    "gpt-5.6-luna": 172
   },
-  "characters": 28238
+  "categories": {
+    "conversation": 1419,
+    "debugging": 448,
+    "code_edit": 468,
+    "browser_game": 723,
+    "web": 887,
+    "python": 225,
+    "explanation": 255,
+    "instruction": 212
+  },
+  "characters": 9292595
 }

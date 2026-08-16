@@ -1,0 +1,7 @@
+{
+  "token_count": 2526417,
+  "sequence_length": 2048,
+  "dtype": "uint16",
+  "source": "data/processed/chat.jsonl",
+  "tokenizer": "tokenizer/tokenizer.json"
+}

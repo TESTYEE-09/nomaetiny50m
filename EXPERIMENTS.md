@@ -28,3 +28,17 @@
 - Step-one throughput: **MEASURED** 81.83 tokens/sec
 - Peak allocated VRAM: **MEASURED** 1,151,595,008 bytes
 - Inference path: pass (empty random-weight output is expected at this scale)
+
+## 2026-08-16 — Mixed DeepSeek + Luna one-epoch run
+
+- DeepSeek records: **MEASURED** 4,465
+- Luna records: **MEASURED** 172 from 10 lightweight agents
+- Exact duplicates removed mechanically: **MEASURED** 4
+- Mixed tokenizer: **MEASURED** 16,384 tokens
+- Packed dataset: **MEASURED** 2,554,740 tokens
+- Model: **MEASURED** 49,295,872 parameters, random initialization
+- Training: **MEASURED** 1,247 steps; 2,553,856 tokens; sequence 512; gradient accumulation 4; FP16
+- Sustained throughput: **MEASURED** approximately 19,400 tokens/sec late in the run
+- Peak allocated VRAM: **MEASURED** 1,352,043,008 bytes
+- Late-batch loss range: **MEASURED** approximately 2.05–3.58
+- FP16 inference export: **MEASURED** 98,630,719 bytes

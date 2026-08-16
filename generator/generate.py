@@ -1,6 +1,6 @@
 """Resumable DeepSeek-only teacher-data generator using explicit non-thinking mode."""
 from __future__ import annotations
-import argparse, asyncio, hashlib, json, os, random, time
+import argparse, asyncio, hashlib, json, os, random, time, tempfile
 from pathlib import Path
 import httpx
 
@@ -32,6 +32,13 @@ def prior_spend(out: Path) -> float:
         except (OSError,json.JSONDecodeError): pass
     return total
 
+def worst_case_cost(prompt: str, max_tokens: int) -> float:
+    """Upper bound used before dispatching a request (never intentionally overspend)."""
+    # Character count is deliberately conservative: tokenizers can split unusual
+    # Unicode much more finely than the usual 4-char heuristic.
+    input_tokens = len((SYSTEM + prompt).encode("utf-8")) + 32
+    return input_tokens / 1_000_000 * INPUT_USD_PER_MILLION + max_tokens / 1_000_000 * OUTPUT_USD_PER_MILLION
+
 async def call(client: httpx.AsyncClient, key: str, prompt: str, max_tokens: int, max_retries: int) -> dict:
     payload={"model":MODEL,"messages":[{"role":"system","content":SYSTEM},{"role":"user","content":prompt}],"thinking":{"type":"disabled"},"response_format":{"type":"json_object"},"max_tokens":max_tokens}
     for attempt in range(max_retries):
@@ -58,19 +65,42 @@ async def main_async(args):
     spent=prior_spend(out)
     print(json.dumps({"event":"reasoning_contract","model":MODEL,"thinking":"disabled","reasoning_effort":"omitted","prior_estimated_spend_usd":spent,"max_spend_usd":args.max_spend}))
     if spent >= args.max_spend: raise SystemExit("Spending cap already reached; no request was made")
+    lock = asyncio.Lock(); index_lock = asyncio.Lock(); next_index = 0; stopped = False
     async with httpx.AsyncClient(timeout=120) as client:
-        for i in range(args.count):
-            eid = stable_id(args.seed, i); path = out / f"{eid}.json"
-            if path.exists(): continue
-            if spent >= args.max_spend: print(json.dumps({"event":"spending_cap_reached","estimated_spend_usd":spent})); break
-            category, prompt = prompt_for(args.seed, i)
-            raw = await call(client, key, prompt, args.max_tokens, args.max_retries)
-            message=raw["choices"][0]["message"]
-            record={"id":eid,"category":category,"request":{"model":MODEL,"thinking":"disabled"},"teacher":json.loads(message["content"]),"usage":raw.get("usage",{}),"api_metadata":{"id":raw.get("id"),"created":raw.get("created"),"finish_reason":raw["choices"][0].get("finish_reason")}}
-            path.write_text(json.dumps(record,ensure_ascii=False,indent=2),encoding="utf-8")
-            spent += cost_usd(record["usage"])
-            print(json.dumps({"event":"saved","id":eid,"category":category,"total_tokens":record["usage"].get("total_tokens"),"estimated_cumulative_spend_usd":spent}),flush=True)
+        async def worker():
+            nonlocal spent, next_index, stopped
+            while True:
+                async with index_lock:
+                    if stopped or next_index >= args.count: return
+                    i = next_index; next_index += 1
+                eid = stable_id(args.seed, i); path = out / f"{eid}.json"
+                if path.exists(): continue
+                category, prompt = prompt_for(args.seed, i)
+                async with lock:
+                    bound = worst_case_cost(prompt, args.max_tokens)
+                    if spent + bound > args.max_spend:
+                        stopped = True
+                        print(json.dumps({"event":"spending_cap_reached","estimated_spend_usd":spent}), flush=True)
+                        return
+                    spent += bound
+                try:
+                    raw = await call(client, key, prompt, args.max_tokens, args.max_retries)
+                    message=raw["choices"][0]["message"]
+                    record={"id":eid,"category":category,"request":{"model":MODEL,"thinking":"disabled"},"teacher":json.loads(message["content"]),"usage":raw.get("usage",{}),"raw_response":raw,"api_metadata":{"id":raw.get("id"),"created":raw.get("created"),"finish_reason":raw["choices"][0].get("finish_reason")}}
+                    fd, tmp = tempfile.mkstemp(prefix=eid+".", suffix=".tmp", dir=out)
+                    try:
+                        with os.fdopen(fd, "w", encoding="utf-8") as f: json.dump(record, f, ensure_ascii=False, indent=2); f.flush(); os.fsync(f.fileno())
+                        os.replace(tmp, path)
+                    finally:
+                        if os.path.exists(tmp): os.unlink(tmp)
+                    actual = cost_usd(record["usage"])
+                    async with lock: spent += actual - bound
+                    print(json.dumps({"event":"saved","id":eid,"category":category,"total_tokens":record["usage"].get("total_tokens"),"estimated_cumulative_spend_usd":spent}),flush=True)
+                except Exception:
+                    async with lock: spent -= bound
+                    raise
+        await asyncio.gather(*(worker() for _ in range(max(1,args.concurrency))))
 
 if __name__ == "__main__":
-    p=argparse.ArgumentParser(); p.add_argument("--count",type=int,default=1); p.add_argument("--seed",type=int,default=20260816); p.add_argument("--max-tokens",type=int,default=4096); p.add_argument("--max-retries",type=int,default=6); p.add_argument("--max-spend",type=float,default=1.0); p.add_argument("--output",default="data/raw")
+    p=argparse.ArgumentParser(); p.add_argument("--count",type=int,default=1); p.add_argument("--seed",type=int,default=20260816); p.add_argument("--max-tokens",type=int,default=4096); p.add_argument("--max-retries",type=int,default=6); p.add_argument("--concurrency",type=int,default=4); p.add_argument("--max-spend",type=float,default=1.0); p.add_argument("--output",default="data/raw")
     asyncio.run(main_async(p.parse_args()))

@@ -1,10 +1,12 @@
 .venv/
 .env
+.secrets/
 __pycache__/
 .pytest_cache/
 *.pyc
 data/raw/*.json
-data/processed/*
+data/processed/chat.jsonl
+data/processed/tokenizer_corpus.txt
 checkpoints/*
 logs/*
 evaluation/results.jsonl
