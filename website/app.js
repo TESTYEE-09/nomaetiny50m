@@ -3,10 +3,16 @@ import { AutoTokenizer, env } from "https://cdn.jsdelivr.net/npm/@huggingface/tr
 const $ = (selector) => document.querySelector(selector);
 const ui = { chat: $("#chat"), empty: $("#empty"), form: $("#composer"), prompt: $("#prompt"), send: $("#send"), status: $("#status"), dot: $("#dot"), runtime: $("#runtime"), clear: $("#clear"), model: $("#model") };
 const MODELS = {
-  wiki: { label: "Wikipedia", dir: "model-wiki", name: "tiny50m-wiki", tokenizer: "model-wiki", cache: "tiny50m-wiki" },
-  v1: { label: "Original", dir: "model", name: "tiny50m-fp16", tokenizer: "model", cache: "tiny50m-v2" },
+  wiki: {
+    label: "Wikipedia", dir: "model-wiki", name: "tiny50m-wiki", tokenizer: "model-wiki", cache: "tiny50m-wiki",
+    system: "You are Tiny50M, a concise helpful assistant. Answer clearly and give code when useful.",
+  },
+  v1: {
+    label: "Original", dir: "model", name: "tiny50m-fp16", tokenizer: "model", cache: "tiny50m-v2",
+    system: "You are Tiny50M, a concise helpful assistant.",
+  },
 };
-const MAX_CONTEXT = 512, MAX_NEW_TOKENS = 160;
+const MAX_CONTEXT = 384, MAX_NEW_TOKENS = 96;
 let session, tokenizer, generating = false, turns = [], cacheDtype = "float16", current = MODELS.wiki;
 
 env.allowRemoteModels = false; env.allowLocalModels = true; env.localModelPath = new URL("./", location.href).href;
@@ -81,10 +87,20 @@ function addMessage(role, text = "") {
 }
 
 function choose(logits, recent, temperature = .78, topK = 36) {
-  const ranked = [], seen = new Set(recent.slice(-64));
-  for (let i = 0; i < logits.length; i++) { let score = logits[i] / temperature; if (seen.has(i)) score = score > 0 ? score / 1.12 : score * 1.12; if (ranked.length < topK) { ranked.push([score, i]); ranked.sort((a,b) => a[0] - b[0]); } else if (score > ranked[0][0]) { ranked[0] = [score, i]; ranked.sort((a,b) => a[0] - b[0]); } }
-  const max = ranked.at(-1)[0], weights = ranked.map(([score]) => Math.exp(score - max)); let needle = Math.random() * weights.reduce((a,b) => a + b, 0);
-  for (let i = 0; i < weights.length; i++) if ((needle -= weights[i]) <= 0) return ranked[i][1]; return ranked.at(-1)[1];
+  const seen = new Set(recent.slice(-64)), scored = [];
+  for (let i = 0; i < logits.length; i++) {
+    let score = logits[i] / temperature;
+    if (seen.has(i)) score = score > 0 ? score / 1.12 : score * 1.12;
+    scored.push(score);
+  }
+  const idx = Array.from({ length: logits.length }, (_, i) => i);
+  idx.sort((a, b) => scored[b] - scored[a]);
+  const top = idx.slice(0, topK), max = scored[top[0]];
+  let sum = 0;
+  for (const i of top) sum += Math.exp(scored[i] - max);
+  let needle = Math.random() * sum;
+  for (const i of top) { needle -= Math.exp(scored[i] - max); if (needle <= 0) return i; }
+  return top[top.length - 1];
 }
 
 function emptyCache() {
@@ -96,7 +112,7 @@ function emptyCache() {
 
 async function reply(userText, target) {
   const context = turns.slice(0, -1).slice(-4).map(t => `<|${t.role}|>${t.text}`).join("");
-  const prompt = `<|bos|><|system|>You are Tiny50M, a concise helpful assistant.<|eos|>${context}<|user|>${userText}<|eos|><|assistant|>`;
+  const prompt = `<|bos|><|system|>${current.system}<|eos|>${context}<|user|>${userText}<|eos|><|assistant|>`;
   let ids = Array.from((await tokenizer(prompt, { add_special_tokens: false })).input_ids.data, Number).slice(-MAX_CONTEXT);
   let feeds = emptyCache(); feeds.input_ids = new ort.Tensor("int64", BigInt64Array.from(ids, BigInt), [1, ids.length]);
   let output = await session.run(feeds); const generated = [], started = performance.now(); target.classList.add("cursor");
