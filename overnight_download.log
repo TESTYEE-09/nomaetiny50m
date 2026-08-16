@@ -1,0 +1,15 @@
+downloading wikipedia slice...
+  [wikimedia/wikipedia] streamed 10000, kept 10000
+  [wikimedia/wikipedia] streamed 20000, kept 20000
+  [wikimedia/wikipedia] streamed 30000, kept 30000
+  [wikimedia/wikipedia] streamed 40000, kept 39988
+  [wikimedia/wikipedia] streamed 50000, kept 49988
+  [wikimedia/wikipedia] streamed 60000, kept 59960
+  [wikimedia/wikipedia] done, kept 60000
+wikipedia: 60000 records -> wikipedia.jsonl
+codealpaca: 0 records -> codealpaca.jsonl
+ultrachat: 20000 records -> ultrachat.jsonl
+gsm8k: 7473 records -> gsm8k.jsonl
+dolly: 15011 records -> dolly.jsonl
+alpaca: 51760 records -> alpaca.jsonl
+DONE: ['wikipedia', 'codealpaca', 'ultrachat', 'gsm8k', 'dolly', 'alpaca']

@@ -7,7 +7,7 @@
   <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/ort.webgpu.min.js"></script>
 </head>
 <body><main>
-  <header><a class="brand" href="./" aria-label="Tiny50M home">tiny<span>50m</span></a><div class="state"><i id="dot"></i><span id="status">Ready</span></div></header>
+  <header><a class="brand" href="./" aria-label="Tiny50M home">tiny<span>50m</span></a><label class="model-select">Model<select id="model"><option value="wiki">Wikipedia</option><option value="v1">Original</option></select></label><div class="state"><i id="dot"></i><span id="status">Ready</span></div></header>
   <section id="empty" class="empty"><h1>Small model.<br>Right here.</h1><p>Private, on-device, no account.</p></section>
   <section id="chat" class="chat" aria-live="polite"></section>
   <form id="composer"><textarea id="prompt" rows="1" maxlength="1600" aria-label="Message" placeholder="Message Tiny50M"></textarea><button id="send" type="submit" aria-label="Send"><span>↑</span></button></form>

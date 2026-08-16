@@ -1,0 +1,8 @@
+{
+  "file": "model-wiki-fp16.pt",
+  "bytes": 98631299,
+  "parameters": 49295872,
+  "precision": "fp16",
+  "trained_tokens": 204345344,
+  "step": 99778
+}

@@ -3,6 +3,6 @@
   "bytes": 98630719,
   "parameters": 49295872,
   "precision": "fp16",
-  "trained_tokens": 52744192,
-  "step": 25754
+  "trained_tokens": 129024000,
+  "step": 63000
 }

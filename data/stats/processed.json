@@ -1,31 +1,27 @@
 {
-  "records": 78862,
-  "mechanical_duplicates_removed": 23,
+  "records": 172238,
+  "mechanical_duplicates_removed": 19,
   "sources": {
-    "deepseek-v4-flash": 4465,
-    "gpt-5.6-luna": 172,
-    "dolly": 14996,
     "alpaca": 51756,
-    "gsm8k": 7473
+    "codealpaca": 18013,
+    "dolly": 14996,
+    "gsm8k": 7473,
+    "ultrachat": 20000,
+    "wikipedia": 60000
   },
   "categories": {
-    "conversation": 1419,
-    "debugging": 448,
-    "code_edit": 468,
-    "browser_game": 723,
-    "web": 887,
-    "python": 225,
-    "explanation": 255,
-    "instruction": 51968,
+    "instruction": 51756,
+    "coding": 18013,
     "closed_qa": 1768,
     "classification": 2136,
     "open_qa": 3737,
     "information_extraction": 1506,
     "brainstorming": 1765,
-    "general_qa": 2188,
+    "general_qa": 62188,
     "summarization": 1187,
     "creative_writing": 709,
-    "math": 7473
+    "math": 7473,
+    "conversation": 20000
   },
-  "characters": 67762852
+  "characters": 341927620
 }

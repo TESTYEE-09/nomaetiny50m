@@ -18,3 +18,8 @@ work/
 !data/processed/.gitkeep
 !checkpoints/.gitkeep
 !logs/.gitkeep
+data/wiki_raw/*
+data/processed-wiki/*
+data/empty_raw/*
+data/empty_luna/*
+

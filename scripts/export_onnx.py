@@ -70,18 +70,23 @@ class BrowserModel(nn.Module):
 
 
 def main():
-    fp32 = "--fp32" in sys.argv
-    target = ROOT / "site" / "public" / "model" / ("tiny50m-fp32.onnx" if fp32 else "tiny50m.onnx")
+    p = argparse.ArgumentParser()
+    p.add_argument("--fp32", action="store_true")
+    p.add_argument("--model", default=str(ROOT / "export" / "model-fp16.pt"))
+    p.add_argument("--name", default="tiny50m")
+    p.add_argument("--target", default=str(ROOT / "site" / "public" / "model"))
+    a = p.parse_args()
+    target = Path(a.target) / (f"{a.name}.onnx" if not a.fp32 else f"{a.name}-fp32.onnx")
     target.parent.mkdir(parents=True, exist_ok=True)
-    payload = torch.load(ROOT / "export" / "model-fp16.pt", map_location="cpu", weights_only=True)
+    payload = torch.load(a.model, map_location="cpu", weights_only=True)
     state = payload.get("model", payload)
     model = TinyLM(ModelConfig()).eval()
     model.load_state_dict(state)
-    if not fp32:
+    if not a.fp32:
         model.half()
     wrapped = BrowserModel(model).eval()
     sample = torch.tensor([[1, 2, 3, 4]], dtype=torch.long)
-    cache = tuple(torch.zeros(1, 2, 2, 64, dtype=torch.float32 if fp32 else torch.float16) for _ in range(24))
+    cache = tuple(torch.zeros(1, 2, 2, 64, dtype=torch.float32 if a.fp32 else torch.float16) for _ in range(24))
     input_names = ["input_ids"] + [f"past_{i}_{kind}" for i in range(12) for kind in ("key", "value")]
     output_names = ["logits"] + [f"present_{i}_{kind}" for i in range(12) for kind in ("key", "value")]
     dynamic_axes = {"input_ids": {1: "sequence"}}
@@ -104,4 +109,5 @@ def main():
 
 
 if __name__ == "__main__":
+    import argparse
     main()

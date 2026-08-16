@@ -1,0 +1,11 @@
+[02:06:36] RUN export/export_weights.py --checkpoint checkpoints/wiki-production.pt --output export/model-wiki-fp16.pt
+[02:06:38]   {"file": "model-wiki-fp16.pt", "bytes": 98631299, "parameters": 49295872, "precision": "fp16", "trained_tokens": 204345344, "step": 99778}
+[02:06:38] RUN scripts/export_onnx.py --fp32 --model export/model-wiki-fp16.pt --name tiny50m-wiki --target site/public/model-wiki
+[02:06:43]   site\public\model-wiki\tiny50m-wiki-fp32.onnx 231006429
+[02:06:43] RUN scripts/export_onnx.py --model export/model-wiki-fp16.pt --name tiny50m-wiki-fp16 --target site/public/model-wiki
+[02:06:46]   site\public\model-wiki\tiny50m-wiki-fp16.onnx 115637199
+[02:06:46] RUN scripts/shard_onnx.py --src site/public/model-wiki/tiny50m-wiki-fp16.onnx --dst website/model-wiki --name tiny50m-wiki
+[02:06:46]   shards: 111  total: 115.4 MB  graph: 276500 bytes
+[02:06:46] RUN scripts/quantize_onnx.py --src site/public/model-wiki/tiny50m-wiki-fp32.onnx --dst website/model-wiki/tiny50m-wiki-int8.onnx
+[02:06:49]   website\model-wiki\tiny50m-wiki-int8.onnx 83364224
+[02:06:49] PIPELINE OK

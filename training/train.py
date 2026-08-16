@@ -20,7 +20,7 @@ def main():
     torch.cuda.reset_peak_memory_stats(); began=time.perf_counter()
     for step in range(start_step,a.steps):
         opt.zero_grad(set_to_none=True); total_loss=0
-        progress=(step+1)/a.steps; warm=max(1,int(a.steps*a.warmup)); scale=(step+1)/warm if step<warm else .1+.9*.5*(1+math.cos(math.pi*(step-warm)/max(1,a.steps-warm)))
+        local=step-start_step+1; span=max(1,a.steps-start_step); progress=local/span; warm=max(1,int(span*a.warmup)); scale=local/warm if local<warm else .1+.9*.5*(1+math.cos(math.pi*(local-warm)/max(1,span-warm)))
         for group in opt.param_groups: group["lr"]=a.lr*scale
         for _ in range(a.grad_accum):
             pos=random.randrange(0,len(data)-a.seq); ids=torch.from_numpy(np.array(data[pos:pos+a.seq+1],dtype=np.int64)).unsqueeze(0).to(device)

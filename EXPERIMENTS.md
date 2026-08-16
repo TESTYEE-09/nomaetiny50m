@@ -65,3 +65,12 @@
 - Peak allocated VRAM: **MEASURED** 1,556,622,336 bytes (1.45 GiB)
 - Final checkpoint: `checkpoints/mixed2-production.pt` (step 25754)
 - ONNX vs PyTorch parity: **MEASURED** identical argmax, max abs diff 0.0234 (FP16); int8 identical argmax, top-5 overlap 5/5
+
+## 2026-08-16 - Wikipedia + HF corpus, from-scratch training (overnight)
+
+- New corpus (NO luna/deepseek data): wikimedia/wikipedia 20231101.en (60,000 articles), HuggingFaceH4/CodeAlpaca_20K (18,013), HuggingFaceH4/ultrachat_200k (20,000), openai/gsm8k (7,473), databricks-dolly-15k (14,996), yahma/alpaca-cleaned (51,756)
+- Merged: **MEASURED** 172,238 records; 81,738,855 tokens; seq 512
+- Tokenizer retrained on new corpus (vocab 16384, same special tokens)
+- Training: from scratch, 99,778 steps (2.5 epochs), sequence 512, gradient accumulation 4, FP16
+- Final checkpoint: checkpoints/wiki-production.pt
+- Website: model selector added (Wikipedia model + Original model), model-wiki dir
